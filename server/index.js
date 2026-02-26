@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const taskRoutes = require('./routes/tasks');
 const statsRoutes = require('./routes/stats');
+const noteRoutes = require('./routes/notes');
+const messageRoutes = require('./routes/messages');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +21,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Serve static React build
 app.use(express.static(path.join(__dirname, 'public')));
