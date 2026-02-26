@@ -1,12 +1,29 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const location = useLocation();
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  // Refresh unread count on navigation and every 30s
+  useEffect(() => {
+    let active = true;
+    const fetchUnread = async () => {
+      try {
+        const data = await api.getUnreadCount();
+        if (active) setUnreadCount(data.count);
+      } catch (err) { /* silent */ }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => { active = false; clearInterval(interval); };
+  }, [location.pathname]);
 
   return (
     <div className="app-layout">
@@ -43,6 +60,15 @@ export default function Layout() {
           </NavLink>
           <NavLink to="/leaderboard" onClick={closeSidebar}>
             <span className="nav-emoji">{'\uD83C\uDFC6'}</span> Leaderboard
+          </NavLink>
+          <NavLink to="/notes" onClick={closeSidebar}>
+            <span className="nav-emoji">{'\uD83D\uDCDD'}</span> Notes
+          </NavLink>
+          <NavLink to="/messages" onClick={closeSidebar} style={{ position: 'relative' }}>
+            <span className="nav-emoji">{'\uD83D\uDCAC'}</span> Messages
+            {unreadCount > 0 && (
+              <span className="nav-unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+            )}
           </NavLink>
           {user?.is_admin && (
             <NavLink to="/admin" onClick={closeSidebar}>

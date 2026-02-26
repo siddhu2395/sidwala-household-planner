@@ -60,4 +60,17 @@ export const api = {
   getDashboard: () => request('/stats/dashboard'),
   getLeaderboard: () => request('/stats/leaderboard'),
   getAchievements: (userId) => request(`/stats/achievements/${userId}`),
+
+  // Notes
+  getNotes: () => request('/notes'),
+  createNote: (data) => request('/notes', { method: 'POST', body: JSON.stringify(data) }),
+  updateNote: (id, data) => request(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
+
+  // Messages
+  getConversations: () => request('/messages/conversations'),
+  getUnreadCount: () => request('/messages/unread-count'),
+  getMessagesWith: (userId) => request(`/messages/with/${userId}`),
+  sendMessage: (recipientId, content) =>
+    request('/messages', { method: 'POST', body: JSON.stringify({ recipient_id: recipientId, content }) }),
 };
