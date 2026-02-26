@@ -120,6 +120,27 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 });
 
+// PUT /api/users/:id/password — admin resets a user's password (no current password needed)
+router.put('/:id/password', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { new_password } = req.body;
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const hash = await bcrypt.hash(new_password, 12);
+    const result = await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      [hash, userId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('Admin reset password error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // DELETE /api/users/:id — admin deletes a user
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {

@@ -9,6 +9,7 @@ import Admin from './pages/Admin';
 import Leaderboard from './pages/Leaderboard';
 import Notes from './pages/Notes';
 import Messages from './pages/Messages';
+import Profile from './pages/Profile';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="leaderboard" element={<Leaderboard />} />
         <Route path="notes" element={<Notes />} />
         <Route path="messages" element={<Messages />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" />} />

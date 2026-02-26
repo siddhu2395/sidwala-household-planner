@@ -83,15 +83,18 @@ export default function Layout() {
           </button>
         </div>
 
-        <div className="sidebar-user">
+        <NavLink to="/profile" className="sidebar-user" onClick={closeSidebar} style={{ textDecoration: 'none' }}>
           <div className="user-avatar">{user?.avatar_emoji || '\uD83D\uDE0A'}</div>
           <div className="user-info">
             <div className="user-name">{user?.display_name}</div>
             <div className="user-points">
-              {'\u2B50'} {user?.points || 0} points {'\u00B7'} {'\uD83D\uDD25'} {user?.streak_days || 0} day streak
+              {'\u2B50'} {user?.points || 0} pts {'\u00B7'} {'\uD83D\uDD25'} {user?.streak_days || 0}d streak
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--lavender)', marginTop: 2 }}>
+              Edit profile &amp; password
             </div>
           </div>
-        </div>
+        </NavLink>
       </nav>
 
       {/* Main */}
