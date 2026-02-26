@@ -15,6 +15,11 @@ pool.on('error', (err) => {
 async function initDb() {
   const client = await pool.connect();
   try {
+    // Migrate: add is_approved column for existing deployments (approved by default)
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_approved BOOLEAN NOT NULL DEFAULT TRUE
+    `);
+
     // Wait for tables to be ready (init.sql runs via Docker entrypoint)
     let retries = 10;
     while (retries > 0) {
@@ -37,8 +42,8 @@ async function initDb() {
     if (adminCheck.rows.length === 0) {
       const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 12);
       await client.query(
-        `INSERT INTO users (username, display_name, password_hash, avatar_emoji, is_admin)
-         VALUES ($1, $2, $3, $4, TRUE)`,
+        `INSERT INTO users (username, display_name, password_hash, avatar_emoji, is_admin, is_approved)
+         VALUES ($1, $2, $3, $4, TRUE, TRUE)`,
         [
           process.env.ADMIN_USERNAME || 'admin',
           process.env.ADMIN_DISPLAY_NAME || 'Admin',

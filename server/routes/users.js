@@ -5,15 +5,61 @@ const { authenticate, requireAdmin } = require('../auth');
 
 const router = express.Router();
 
-// GET /api/users — list all users
+// GET /api/users — list approved users (all for admins, approved-only for regular users)
 router.get('/', authenticate, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT id, username, display_name, avatar_emoji, is_admin, points, streak_days, created_at FROM users ORDER BY display_name'
-    );
+    const query = req.user.is_admin
+      ? 'SELECT id, username, display_name, avatar_emoji, is_admin, is_approved, points, streak_days, created_at FROM users WHERE is_approved = TRUE ORDER BY display_name'
+      : 'SELECT id, username, display_name, avatar_emoji, is_admin, points, streak_days, created_at FROM users WHERE is_approved = TRUE ORDER BY display_name';
+    const result = await pool.query(query);
     res.json(result.rows);
   } catch (err) {
     console.error('List users error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/users/pending — admin only: list users awaiting approval
+router.get('/pending', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, display_name, avatar_emoji, created_at FROM users WHERE is_approved = FALSE ORDER BY created_at ASC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Pending users error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/users/:id/approve — admin approves a pending user
+router.post('/:id/approve', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const result = await pool.query(
+      'UPDATE users SET is_approved = TRUE, updated_at = NOW() WHERE id = $1 AND is_approved = FALSE RETURNING id, username, display_name',
+      [userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Pending user not found' });
+    res.json({ message: 'User approved', user: result.rows[0] });
+  } catch (err) {
+    console.error('Approve user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/users/:id/reject — admin rejects (deletes) a pending user
+router.post('/:id/reject', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 AND is_approved = FALSE RETURNING id',
+      [userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Pending user not found' });
+    res.json({ message: 'User rejected' });
+  } catch (err) {
+    console.error('Reject user error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -33,8 +79,8 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
 
     const hash = await bcrypt.hash(password, 12);
     const result = await pool.query(
-      `INSERT INTO users (username, display_name, password_hash, avatar_emoji, is_admin)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (username, display_name, password_hash, avatar_emoji, is_admin, is_approved)
+       VALUES ($1, $2, $3, $4, $5, TRUE)
        RETURNING id, username, display_name, avatar_emoji, is_admin, points, streak_days`,
       [username.toLowerCase(), display_name, hash, avatar_emoji || '😊', is_admin || false]
     );

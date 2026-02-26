@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     avatar_emoji VARCHAR(10) DEFAULT '😊',
     is_admin BOOLEAN DEFAULT FALSE,
+    is_approved BOOLEAN NOT NULL DEFAULT FALSE,
     points INTEGER DEFAULT 0,
     streak_days INTEGER DEFAULT 0,
     last_completed_date DATE,

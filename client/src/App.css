@@ -124,7 +124,41 @@ a:hover { text-decoration: underline; }
 }
 
 .login-card .subtitle {
-  text-align: center; color: var(--text-secondary); margin-bottom: 32px; font-size: 0.95rem;
+  text-align: center; color: var(--text-secondary); margin-bottom: 20px; font-size: 0.95rem;
+}
+
+.login-tabs {
+  display: flex; gap: 4px; background: var(--bg-secondary); border-radius: var(--radius-sm);
+  padding: 4px; margin-bottom: 24px;
+}
+
+.login-tab {
+  flex: 1; padding: 8px 0; border: none; border-radius: calc(var(--radius-sm) - 2px);
+  font-family: var(--font-body); font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s var(--ease);
+  background: transparent; color: var(--text-secondary);
+}
+
+.login-tab.active {
+  background: var(--surface); color: var(--lavender-deep);
+  box-shadow: 0 1px 6px rgba(155, 132, 196, 0.15);
+}
+
+.login-tab:hover:not(.active) { color: var(--text); }
+
+.signup-success {
+  text-align: center; padding: 8px 0 16px;
+}
+
+.signup-success-icon { font-size: 3rem; margin-bottom: 12px; }
+
+.signup-success h2 {
+  font-family: var(--font-display); font-weight: 800; color: var(--mint-deep);
+  margin-bottom: 12px;
+}
+
+.signup-success p {
+  color: var(--text-secondary); font-size: 0.93rem; margin-bottom: 24px; line-height: 1.6;
 }
 
 .login-card .house-emoji {
@@ -607,6 +641,54 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   display: inline-block; background: var(--lavender-light); color: var(--lavender-deep);
   padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 700;
 }
+
+.section-title {
+  font-family: var(--font-display); font-weight: 800; font-size: 1.1rem;
+  color: var(--text); margin: 24px 0 4px;
+}
+
+/* ---- Pending Approvals ---- */
+.pending-section {
+  background: var(--butter-light); border: 1.5px solid var(--butter-deep);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 28px;
+}
+
+.pending-section-title {
+  font-family: var(--font-display); font-weight: 800; font-size: 1.05rem;
+  color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
+}
+
+.pending-badge {
+  background: var(--rose); color: white; border-radius: 20px;
+  padding: 1px 9px; font-size: 0.8rem; font-weight: 800;
+}
+
+.pending-list { display: flex; flex-direction: column; gap: 10px; }
+
+.pending-card {
+  background: var(--surface); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+
+.pending-avatar {
+  width: 44px; height: 44px; border-radius: 50%; background: var(--lavender-light);
+  display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.pending-info { flex: 1; min-width: 0; }
+.pending-name { font-weight: 700; font-size: 0.95rem; }
+.pending-username { font-size: 0.8rem; color: var(--text-muted); }
+.pending-date { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+.pending-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.btn-success {
+  background: var(--mint-deep); color: white;
+}
+
+.btn-success:hover { background: #5aaf88; }
 
 /* ---- Leaderboard ---- */
 .leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
