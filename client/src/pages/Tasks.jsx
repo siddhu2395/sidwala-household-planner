@@ -13,7 +13,7 @@ function getCategoryEmoji(cat) {
 
 function formatDue(d) {
   if (!d) return null;
-  const due = new Date(d + 'T00:00:00');
+  const due = new Date(d.slice(0, 10) + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const diff = Math.floor((due - today) / (1000 * 60 * 60 * 24));
