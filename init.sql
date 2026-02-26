@@ -96,6 +96,16 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Note sharing / collaboration
+CREATE TABLE IF NOT EXISTS note_shares (
+    id SERIAL PRIMARY KEY,
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    shared_with INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    can_edit BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(note_id, shared_with)
+);
+
 -- Indexes
 CREATE INDEX idx_tasks_assigned ON tasks(assigned_to);
 CREATE INDEX idx_tasks_status ON tasks(status);
@@ -104,5 +114,7 @@ CREATE INDEX idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
 CREATE INDEX idx_comments_task ON comments(task_id);
 CREATE INDEX idx_notes_user ON notes(user_id);
+CREATE INDEX idx_note_shares_note ON note_shares(note_id);
+CREATE INDEX idx_note_shares_user ON note_shares(shared_with);
 CREATE INDEX idx_messages_sender ON messages(sender_id);
 CREATE INDEX idx_messages_recipient ON messages(recipient_id);

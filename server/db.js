@@ -47,6 +47,20 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id)`);
 
+    // Migrate: create note_shares table if not exists
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS note_shares (
+        id SERIAL PRIMARY KEY,
+        note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        shared_with INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        can_edit BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(note_id, shared_with)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_note_shares_note ON note_shares(note_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_note_shares_user ON note_shares(shared_with)`);
+
     // Wait for tables to be ready (init.sql runs via Docker entrypoint)
     let retries = 10;
     while (retries > 0) {

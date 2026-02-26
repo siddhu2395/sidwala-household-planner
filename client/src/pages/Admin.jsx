@@ -20,6 +20,13 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Reset password modal state
+  const [resetTarget, setResetTarget] = useState(null); // user object
+  const [resetPw, setResetPw] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSaving, setResetSaving] = useState(false);
+
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
@@ -74,6 +81,30 @@ export default function Admin() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openResetPw = (u) => {
+    setResetTarget(u);
+    setResetPw('');
+    setResetMsg('');
+    setResetError('');
+  };
+
+  const handleResetPw = async (e) => {
+    e.preventDefault();
+    if (resetPw.length < 6) { setResetError('Password must be at least 6 characters'); return; }
+    setResetSaving(true);
+    setResetMsg('');
+    setResetError('');
+    try {
+      await api.adminResetPassword(resetTarget.id, resetPw);
+      setResetMsg('Password reset successfully!');
+      setResetPw('');
+    } catch (err) {
+      setResetError(err.message);
+    } finally {
+      setResetSaving(false);
     }
   };
 
@@ -149,18 +180,63 @@ export default function Admin() {
               <div>{'\u2B50'} <span>{u.points}</span> pts</div>
               <div>{'\uD83D\uDD25'} <span>{u.streak_days}</span> streak</div>
             </div>
-            {!u.is_admin && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
-                className="btn btn-danger btn-sm"
-                style={{ marginTop: 8 }}
-                onClick={() => handleDelete(u)}
+                className="btn btn-ghost btn-sm"
+                onClick={() => openResetPw(u)}
               >
-                Remove User
+                {'\uD83D\uDD11'} Reset PW
               </button>
-            )}
+              {!u.is_admin && (
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleDelete(u)}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Reset Password Modal */}
+      {resetTarget && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setResetTarget(null)}>
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h2>{'\uD83D\uDD11'} Reset Password</h2>
+              <button className="btn-icon" onClick={() => setResetTarget(null)}>{'\u2715'}</button>
+            </div>
+            <form onSubmit={handleResetPw}>
+              <div className="modal-body">
+                <p style={{ marginBottom: 16, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Setting new password for <strong>{resetTarget.display_name}</strong> (@{resetTarget.username})
+                </p>
+                {resetError && <div className="error-msg">{resetError}</div>}
+                {resetMsg && <div className="success-msg">{resetMsg}</div>}
+                <div className="form-group">
+                  <label>New Password</label>
+                  <input
+                    className="form-input"
+                    type="password"
+                    placeholder="At least 6 characters"
+                    value={resetPw}
+                    onChange={(e) => setResetPw(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setResetTarget(null)}>Close</button>
+                <button type="submit" className="btn btn-primary" disabled={resetSaving}>
+                  {resetSaving ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create User Modal */}
       {showCreate && (

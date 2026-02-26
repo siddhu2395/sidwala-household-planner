@@ -38,6 +38,8 @@ export const api = {
   rejectUser: (id) => request(`/users/${id}/reject`, { method: 'POST' }),
   createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  adminResetPassword: (id, new_password) =>
+    request(`/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ new_password }) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
 
   // Tasks
@@ -66,6 +68,10 @@ export const api = {
   createNote: (data) => request('/notes', { method: 'POST', body: JSON.stringify(data) }),
   updateNote: (id, data) => request(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
+  getNoteShares: (id) => request(`/notes/${id}/shares`),
+  shareNote: (id, user_id, can_edit) =>
+    request(`/notes/${id}/share`, { method: 'POST', body: JSON.stringify({ user_id, can_edit }) }),
+  removeNoteShare: (id, userId) => request(`/notes/${id}/share/${userId}`, { method: 'DELETE' }),
 
   // Messages
   getConversations: () => request('/messages/conversations'),
