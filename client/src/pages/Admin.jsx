@@ -11,6 +11,7 @@ const AVATAR_OPTIONS = [
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
@@ -19,16 +20,39 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  const loadUsers = async () => {
+  const loadAll = async () => {
     try {
-      const data = await api.getUsers();
-      setUsers(data);
+      const [userData, pendingData] = await Promise.all([
+        api.getUsers(),
+        api.getPendingUsers(),
+      ]);
+      setUsers(userData);
+      setPendingUsers(pendingData);
     } catch (err) {
-      console.error('Load users error:', err);
+      console.error('Load admin data error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApprove = async (u) => {
+    try {
+      await api.approveUser(u.id);
+      loadAll();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleReject = async (u) => {
+    if (!window.confirm(`Reject "${u.display_name}"'s sign-up request? Their account will be deleted.`)) return;
+    try {
+      await api.rejectUser(u.id);
+      loadAll();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -45,7 +69,7 @@ export default function Admin() {
       await api.createUser(form);
       setShowCreate(false);
       setForm({ username: '', display_name: '', password: '', avatar_emoji: '\uD83D\uDE0A', is_admin: false });
-      loadUsers();
+      loadAll();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,7 +81,7 @@ export default function Admin() {
     if (!window.confirm(`Delete user "${u.display_name}"? This cannot be undone.`)) return;
     try {
       await api.deleteUser(u.id);
-      loadUsers();
+      loadAll();
     } catch (err) {
       alert(err.message);
     }
@@ -74,6 +98,46 @@ export default function Admin() {
         </button>
       </div>
 
+      {/* Pending Approvals */}
+      {pendingUsers.length > 0 && (
+        <div className="pending-section">
+          <h2 className="pending-section-title">
+            {'\uD83D\uDD14'} Pending Approvals
+            <span className="pending-badge">{pendingUsers.length}</span>
+          </h2>
+          <div className="pending-list">
+            {pendingUsers.map(u => (
+              <div key={u.id} className="pending-card">
+                <div className="pending-avatar">{u.avatar_emoji || '\uD83D\uDE0A'}</div>
+                <div className="pending-info">
+                  <div className="pending-name">{u.display_name}</div>
+                  <div className="pending-username">@{u.username}</div>
+                  <div className="pending-date">
+                    Requested {new Date(u.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="pending-actions">
+                  <button
+                    className="btn btn-success btn-sm"
+                    onClick={() => handleApprove(u)}
+                  >
+                    {'\u2713'} Approve
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleReject(u)}
+                  >
+                    {'\u2715'} Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Household Members */}
+      <h2 className="section-title">Household Members</h2>
       <div className="users-grid">
         {users.map(u => (
           <div key={u.id} className="user-card">

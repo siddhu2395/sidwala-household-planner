@@ -25,12 +25,17 @@ export const api = {
   // Auth
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  signup: (data) =>
+    request('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
   me: () => request('/auth/me'),
   changePassword: (current_password, new_password) =>
     request('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password, new_password }) }),
 
   // Users
   getUsers: () => request('/users'),
+  getPendingUsers: () => request('/users/pending'),
+  approveUser: (id) => request(`/users/${id}/approve`, { method: 'POST' }),
+  rejectUser: (id) => request(`/users/${id}/reject`, { method: 'POST' }),
   createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),

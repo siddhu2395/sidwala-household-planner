@@ -20,6 +20,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!user.is_approved) {
+      return res.status(403).json({ error: 'Your account is pending admin approval' });
+    }
+
     const token = generateToken(user);
     res.json({
       token,
@@ -35,6 +39,36 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/auth/signup
+router.post('/signup', async (req, res) => {
+  try {
+    const { username, display_name, password, avatar_emoji } = req.body;
+    if (!username || !display_name || !password) {
+      return res.status(400).json({ error: 'Username, display name, and password required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username.toLowerCase()]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    await pool.query(
+      `INSERT INTO users (username, display_name, password_hash, avatar_emoji, is_approved)
+       VALUES ($1, $2, $3, $4, FALSE)`,
+      [username.toLowerCase(), display_name, hash, avatar_emoji || '😊']
+    );
+
+    res.status(201).json({ message: 'Account created! An admin will review your request shortly.' });
+  } catch (err) {
+    console.error('Signup error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
