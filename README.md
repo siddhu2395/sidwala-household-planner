@@ -44,7 +44,7 @@ docker compose up --build -d
 ```
 
 ### 4. Open in browser
-Visit **http://localhost:3000** (or your Mac Mini's IP address on the local network)
+Visit **http://localhost:8080** (or your Mac Mini's IP address on the local network)
 
 ### 5. Login
 - **Username:** `admin`
@@ -56,7 +56,9 @@ Then go to the Admin panel to create accounts for household members!
 
 ### Access from other devices on your network
 1. Find your Mac Mini's local IP: `ifconfig | grep "inet "` (look for something like `192.168.1.x`)
-2. Other devices on the same Wi-Fi can access: `http://192.168.1.x:3000`
+2. Other devices on the same Wi-Fi can access: `http://192.168.1.x:8080`
+
+> **Custom port:** Override the host port at any time with `APP_PORT=3000 docker compose up -d` if port 8080 conflicts with something else.
 
 ### Auto-start on boot
 The `docker-compose.yml` uses `restart: unless-stopped`, so containers will auto-restart after a reboot as long as Docker Desktop is set to start on login.
@@ -134,14 +136,17 @@ sidwala-household-planner/
 
 ### Run without Docker
 ```bash
-# Terminal 1: Start PostgreSQL (or use a local instance)
-# Terminal 2: Backend
+# Terminal 1: Start only the database container
+docker compose up db -d
+
+# Terminal 2: Backend (port 3000)
 cd server && npm install && npm run dev
-# Terminal 3: Frontend
+
+# Terminal 3: Frontend (port 5173)
 cd client && npm install && npm run dev
 ```
 
-The Vite dev server proxies `/api` requests to the Express server.
+The Vite dev server proxies `/api` requests to the Express server at `http://localhost:3000`.
 
 ## 📝 License
 
