@@ -61,6 +61,11 @@ async function initDb() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_note_shares_note ON note_shares(note_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_note_shares_user ON note_shares(shared_with)`);
 
+    // Migrate: add note_id to messages for note-sharing notifications
+    await client.query(`
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS note_id INTEGER REFERENCES notes(id) ON DELETE SET NULL
+    `);
+
     // Wait for tables to be ready (init.sql runs via Docker entrypoint)
     let retries = 10;
     while (retries > 0) {

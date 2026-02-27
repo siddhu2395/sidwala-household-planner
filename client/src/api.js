@@ -77,6 +77,6 @@ export const api = {
   getConversations: () => request('/messages/conversations'),
   getUnreadCount: () => request('/messages/unread-count'),
   getMessagesWith: (userId) => request(`/messages/with/${userId}`),
-  sendMessage: (recipientId, content) =>
-    request('/messages', { method: 'POST', body: JSON.stringify({ recipient_id: recipientId, content }) }),
+  sendMessage: (recipientId, content, noteId = null) =>
+    request('/messages', { method: 'POST', body: JSON.stringify({ recipient_id: recipientId, content, note_id: noteId }) }),
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -200,9 +201,22 @@ export default function Messages() {
                         <div className="msg-avatar">{msg.sender_emoji || '\uD83D\uDE0A'}</div>
                       )}
                       <div className="msg-bubble-wrap">
-                        <div className={`msg-bubble ${isOwn ? 'own' : 'other'}`}>
-                          {msg.content}
-                        </div>
+                        {msg.note_id ? (
+                          <div className={`msg-note-card ${isOwn ? 'own' : 'other'}`}>
+                            <div className="msg-note-header">{'\uD83D\uDCDD'} Shared a note</div>
+                            <div className="msg-note-title">{msg.note_title || 'Untitled Note'}</div>
+                            {msg.note_content && (
+                              <div className="msg-note-preview">{msg.note_content}</div>
+                            )}
+                            <Link to={`/notes?open=${msg.note_id}`} className="msg-note-link">
+                              View Note {'\u2192'}
+                            </Link>
+                          </div>
+                        ) : (
+                          <div className={`msg-bubble ${isOwn ? 'own' : 'other'}`}>
+                            {msg.content}
+                          </div>
+                        )}
                         <div className="msg-time">{timeLabel(msg.created_at)}</div>
                       </div>
                     </div>

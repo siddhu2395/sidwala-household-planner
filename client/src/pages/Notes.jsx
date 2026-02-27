@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,9 +17,11 @@ function timeAgo(dateStr) {
 
 export default function Notes() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [notes, setNotes] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewNote, setViewNote] = useState(null);
 
   // Create/edit form
   const [showForm, setShowForm] = useState(false);
@@ -56,6 +59,21 @@ export default function Notes() {
   }, [user.id]);
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
+
+  // Auto-open note when ?open=<noteId> is present in URL
+  useEffect(() => {
+    if (loading || notes.length === 0) return;
+    const openId = parseInt(searchParams.get('open'));
+    if (!openId) return;
+    const note = notes.find(n => n.id === openId);
+    if (!note) return;
+    if (note.can_edit) {
+      openEdit(note);
+    } else {
+      setViewNote(note);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // ---- Create / edit form ----
   const openCreate = () => {
@@ -158,8 +176,10 @@ export default function Notes() {
     if (!msgRecipient) return;
     setMsgSending(true);
     try {
-      const prefix = shareNote.title ? `\uD83D\uDCDD *${shareNote.title}*\n` : '\uD83D\uDCDD Note:\n';
-      await api.sendMessage(parseInt(msgRecipient), `${prefix}${shareNote.content || '(empty)'}`);
+      const content = shareNote.title
+        ? `Shared a note with you: "${shareNote.title}"`
+        : 'Shared a note with you';
+      await api.sendMessage(parseInt(msgRecipient), content, shareNote.id);
       setMsgSent(true);
       setMsgRecipient('');
     } catch (err) {
@@ -370,6 +390,32 @@ export default function Notes() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={closeShare}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only note view modal (for view-only shared notes opened via URL param) */}
+      {viewNote && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setViewNote(null)}>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>{'\uD83D\uDCDD'} {viewNote.title || 'Untitled Note'}</h2>
+              <button className="btn-icon" onClick={() => setViewNote(null)}>{'\u2715'}</button>
+            </div>
+            <div className="modal-body">
+              {!viewNote.is_owner && (
+                <div className="note-shared-by" style={{ marginBottom: 12 }}>
+                  {viewNote.owner_emoji} Shared by {viewNote.owner_name}
+                  <span className="note-readonly-badge">view only</span>
+                </div>
+              )}
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', lineHeight: 1.7, color: 'var(--text-secondary)', minHeight: 80 }}>
+                {viewNote.content || <em style={{ color: 'var(--text-muted)' }}>Empty note</em>}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setViewNote(null)}>Close</button>
             </div>
           </div>
         </div>

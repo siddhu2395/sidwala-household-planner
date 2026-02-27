@@ -4,7 +4,7 @@ const { authenticate } = require('../auth');
 
 const router = express.Router();
 
-// GET /api/messages/conversations — list conversations with last message + unread count
+// GET /api/messages/conversations
 router.get('/conversations', authenticate, async (req, res) => {
   try {
     const result = await pool.query(
@@ -12,6 +12,7 @@ router.get('/conversations', authenticate, async (req, res) => {
          SELECT
            CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS other_id,
            content,
+           note_id,
            created_at,
            ROW_NUMBER() OVER (
              PARTITION BY CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END
@@ -22,7 +23,7 @@ router.get('/conversations', authenticate, async (req, res) => {
        )
        SELECT
          l.other_id,
-         l.content     AS last_message,
+         CASE WHEN l.note_id IS NOT NULL THEN '📝 Shared a note' ELSE l.content END AS last_message,
          l.created_at  AS last_message_at,
          u.display_name,
          u.avatar_emoji,
@@ -44,7 +45,7 @@ router.get('/conversations', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/messages/unread-count — total unread messages for current user
+// GET /api/messages/unread-count
 router.get('/unread-count', authenticate, async (req, res) => {
   try {
     const result = await pool.query(
@@ -63,7 +64,6 @@ router.get('/with/:userId', authenticate, async (req, res) => {
   try {
     const otherId = parseInt(req.params.userId);
 
-    // Mark all unread messages from this user as read
     await pool.query(
       'UPDATE messages SET is_read = TRUE WHERE sender_id = $1 AND recipient_id = $2 AND is_read = FALSE',
       [otherId, req.user.id]
@@ -71,9 +71,12 @@ router.get('/with/:userId', authenticate, async (req, res) => {
 
     const result = await pool.query(
       `SELECT m.id, m.sender_id, m.recipient_id, m.content, m.is_read, m.created_at,
-              u.display_name AS sender_name, u.avatar_emoji AS sender_emoji
+              m.note_id,
+              u.display_name AS sender_name, u.avatar_emoji AS sender_emoji,
+              n.title AS note_title, n.content AS note_content
        FROM messages m
        JOIN users u ON u.id = m.sender_id
+       LEFT JOIN notes n ON n.id = m.note_id
        WHERE (m.sender_id = $1 AND m.recipient_id = $2)
           OR (m.sender_id = $2 AND m.recipient_id = $1)
        ORDER BY m.created_at ASC`,
@@ -86,10 +89,10 @@ router.get('/with/:userId', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/messages — send a message
+// POST /api/messages — send a message (optionally with a linked note)
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { recipient_id, content } = req.body;
+    const { recipient_id, content, note_id } = req.body;
     if (!recipient_id || !content?.trim()) {
       return res.status(400).json({ error: 'Recipient and content are required' });
     }
@@ -97,7 +100,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Cannot message yourself' });
     }
 
-    // Verify recipient exists and is approved
     const recipientCheck = await pool.query(
       'SELECT id FROM users WHERE id = $1 AND is_approved = TRUE',
       [parseInt(recipient_id)]
@@ -107,10 +109,10 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO messages (sender_id, recipient_id, content)
-       VALUES ($1, $2, $3)
-       RETURNING id, sender_id, recipient_id, content, is_read, created_at`,
-      [req.user.id, parseInt(recipient_id), content.trim()]
+      `INSERT INTO messages (sender_id, recipient_id, content, note_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, sender_id, recipient_id, content, note_id, is_read, created_at`,
+      [req.user.id, parseInt(recipient_id), content.trim(), note_id || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
