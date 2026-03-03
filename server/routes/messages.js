@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../auth');
+const { parseId, sanitizeString } = require('../validation');
 
 const router = express.Router();
 
@@ -61,7 +62,8 @@ router.get('/unread-count', authenticate, async (req, res) => {
 // GET /api/messages/with/:userId — full conversation, marks incoming as read
 router.get('/with/:userId', authenticate, async (req, res) => {
   try {
-    const otherId = parseInt(req.params.userId);
+    const otherId = parseId(req.params.userId);
+    if (!otherId) return res.status(400).json({ error: 'Invalid user ID' });
 
     // Mark all unread messages from this user as read
     await pool.query(
@@ -90,17 +92,25 @@ router.get('/with/:userId', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const { recipient_id, content } = req.body;
-    if (!recipient_id || !content?.trim()) {
-      return res.status(400).json({ error: 'Recipient and content are required' });
+
+    const recipientIdParsed = parseId(recipient_id);
+    if (!recipientIdParsed) {
+      return res.status(400).json({ error: 'Valid recipient_id required' });
     }
-    if (parseInt(recipient_id) === req.user.id) {
+
+    const cleanContent = sanitizeString(content, 5000);
+    if (!cleanContent) {
+      return res.status(400).json({ error: 'Content is required (max 5000 characters)' });
+    }
+
+    if (recipientIdParsed === req.user.id) {
       return res.status(400).json({ error: 'Cannot message yourself' });
     }
 
     // Verify recipient exists and is approved
     const recipientCheck = await pool.query(
       'SELECT id FROM users WHERE id = $1 AND is_approved = TRUE',
-      [parseInt(recipient_id)]
+      [recipientIdParsed]
     );
     if (recipientCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Recipient not found' });
@@ -110,7 +120,7 @@ router.post('/', authenticate, async (req, res) => {
       `INSERT INTO messages (sender_id, recipient_id, content)
        VALUES ($1, $2, $3)
        RETURNING id, sender_id, recipient_id, content, is_read, created_at`,
-      [req.user.id, parseInt(recipient_id), content.trim()]
+      [req.user.id, recipientIdParsed, cleanContent]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../auth');
+const { parseId } = require('../validation');
 
 const router = express.Router();
 
@@ -96,9 +97,12 @@ router.get('/leaderboard', authenticate, async (req, res) => {
 // GET /api/stats/achievements/:userId
 router.get('/achievements/:userId', authenticate, async (req, res) => {
   try {
+    const userId = parseId(req.params.userId);
+    if (!userId) return res.status(400).json({ error: 'Invalid user ID' });
+
     const result = await pool.query(
       'SELECT * FROM achievements WHERE user_id = $1 ORDER BY earned_at DESC',
-      [parseInt(req.params.userId)]
+      [userId]
     );
     res.json(result.rows);
   } catch (err) {

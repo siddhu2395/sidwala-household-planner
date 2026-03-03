@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../auth');
+const { parseId, sanitizeString } = require('../validation');
 
 const router = express.Router();
 
@@ -33,14 +34,17 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const { title, content } = req.body;
-    if (!title && !content) {
+    const cleanTitle = sanitizeString(title, 200) || '';
+    const cleanContent = sanitizeString(content, 50000) || '';
+
+    if (!cleanTitle && !cleanContent) {
       return res.status(400).json({ error: 'Title or content is required' });
     }
     const result = await pool.query(
       `INSERT INTO notes (user_id, title, content)
        VALUES ($1, $2, $3)
        RETURNING id, title, content, created_at, updated_at`,
-      [req.user.id, title || '', content || '']
+      [req.user.id, cleanTitle, cleanContent]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -52,7 +56,9 @@ router.post('/', authenticate, async (req, res) => {
 // GET /api/notes/:id/shares — list collaborators (owner only)
 router.get('/:id/shares', authenticate, async (req, res) => {
   try {
-    const noteId = parseInt(req.params.id);
+    const noteId = parseId(req.params.id);
+    if (!noteId) return res.status(400).json({ error: 'Invalid note ID' });
+
     const ownerCheck = await pool.query(
       'SELECT id FROM notes WHERE id = $1 AND user_id = $2',
       [noteId, req.user.id]
@@ -78,10 +84,13 @@ router.get('/:id/shares', authenticate, async (req, res) => {
 // POST /api/notes/:id/share — add or update a collaborator (owner only)
 router.post('/:id/share', authenticate, async (req, res) => {
   try {
-    const noteId = parseInt(req.params.id);
+    const noteId = parseId(req.params.id);
+    if (!noteId) return res.status(400).json({ error: 'Invalid note ID' });
+
     const { user_id, can_edit } = req.body;
-    if (!user_id) return res.status(400).json({ error: 'user_id required' });
-    if (parseInt(user_id) === req.user.id) return res.status(400).json({ error: 'Cannot share with yourself' });
+    const targetUserId = parseId(user_id);
+    if (!targetUserId) return res.status(400).json({ error: 'Valid user_id required' });
+    if (targetUserId === req.user.id) return res.status(400).json({ error: 'Cannot share with yourself' });
 
     const ownerCheck = await pool.query(
       'SELECT id FROM notes WHERE id = $1 AND user_id = $2',
@@ -93,7 +102,7 @@ router.post('/:id/share', authenticate, async (req, res) => {
       `INSERT INTO note_shares (note_id, shared_with, can_edit)
        VALUES ($1, $2, $3)
        ON CONFLICT (note_id, shared_with) DO UPDATE SET can_edit = $3`,
-      [noteId, parseInt(user_id), can_edit || false]
+      [noteId, targetUserId, can_edit === true]
     );
     res.json({ message: 'Note shared' });
   } catch (err) {
@@ -105,8 +114,11 @@ router.post('/:id/share', authenticate, async (req, res) => {
 // DELETE /api/notes/:id/share/:userId — remove a collaborator (owner only)
 router.delete('/:id/share/:userId', authenticate, async (req, res) => {
   try {
-    const noteId = parseInt(req.params.id);
-    const targetUserId = parseInt(req.params.userId);
+    const noteId = parseId(req.params.id);
+    if (!noteId) return res.status(400).json({ error: 'Invalid note ID' });
+
+    const targetUserId = parseId(req.params.userId);
+    if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
 
     const ownerCheck = await pool.query(
       'SELECT id FROM notes WHERE id = $1 AND user_id = $2',
@@ -128,8 +140,12 @@ router.delete('/:id/share/:userId', authenticate, async (req, res) => {
 // PUT /api/notes/:id — update (owner or can_edit collaborator)
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const noteId = parseInt(req.params.id);
+    const noteId = parseId(req.params.id);
+    if (!noteId) return res.status(400).json({ error: 'Invalid note ID' });
+
     const { title, content } = req.body;
+    const cleanTitle = title !== undefined ? sanitizeString(title, 200) : null;
+    const cleanContent = content !== undefined ? sanitizeString(content, 50000) : null;
 
     // Check access
     const access = await pool.query(
@@ -152,7 +168,7 @@ router.put('/:id', authenticate, async (req, res) => {
          updated_at = NOW()
        WHERE id = $3
        RETURNING id, title, content, created_at, updated_at`,
-      [title, content, noteId]
+      [cleanTitle, cleanContent, noteId]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -164,9 +180,12 @@ router.put('/:id', authenticate, async (req, res) => {
 // DELETE /api/notes/:id — delete (owner only)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
+    const noteId = parseId(req.params.id);
+    if (!noteId) return res.status(400).json({ error: 'Invalid note ID' });
+
     const result = await pool.query(
       'DELETE FROM notes WHERE id = $1 AND user_id = $2 RETURNING id',
-      [parseInt(req.params.id), req.user.id]
+      [noteId, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Note not found or not yours' });
     res.json({ message: 'Note deleted' });
