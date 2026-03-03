@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
 const { generateToken, authenticate } = require('../auth');
+const { validateUsername, validatePassword, sanitizeString } = require('../validation');
 
 const router = express.Router();
 
@@ -13,7 +14,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username.toLowerCase()]);
+    if (typeof username !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Invalid input' });
+    }
+
+    const cleanUsername = username.toLowerCase().trim().slice(0, 50);
+
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [cleanUsername]);
     const user = result.rows[0];
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -50,11 +57,24 @@ router.post('/signup', async (req, res) => {
     if (!username || !display_name || !password) {
       return res.status(400).json({ error: 'Username, display name, and password required' });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+    const cleanUsername = validateUsername(username);
+    if (!cleanUsername) {
+      return res.status(400).json({ error: 'Username must be 3-30 characters, lowercase alphanumeric and underscores only' });
     }
 
-    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username.toLowerCase()]);
+    const cleanDisplayName = sanitizeString(display_name, 100);
+    if (!cleanDisplayName) {
+      return res.status(400).json({ error: 'Display name is required (max 100 characters)' });
+    }
+
+    if (!validatePassword(password)) {
+      return res.status(400).json({ error: 'Password must be between 6 and 128 characters' });
+    }
+
+    const cleanEmoji = sanitizeString(avatar_emoji, 10);
+
+    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [cleanUsername]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Username already taken' });
     }
@@ -63,7 +83,7 @@ router.post('/signup', async (req, res) => {
     await pool.query(
       `INSERT INTO users (username, display_name, password_hash, avatar_emoji, is_approved)
        VALUES ($1, $2, $3, $4, FALSE)`,
-      [username.toLowerCase(), display_name, hash, avatar_emoji || '😊']
+      [cleanUsername, cleanDisplayName, hash, cleanEmoji || '😊']
     );
 
     res.status(201).json({ message: 'Account created! An admin will review your request shortly.' });
@@ -94,6 +114,10 @@ router.put('/password', authenticate, async (req, res) => {
     const { current_password, new_password } = req.body;
     if (!current_password || !new_password) {
       return res.status(400).json({ error: 'Current and new password required' });
+    }
+
+    if (!validatePassword(new_password)) {
+      return res.status(400).json({ error: 'New password must be between 6 and 128 characters' });
     }
 
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);

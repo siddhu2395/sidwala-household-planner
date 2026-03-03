@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../auth');
+const { parseId, sanitizeString, VALID_CATEGORIES, VALID_PRIORITIES, VALID_STATUSES, VALID_RECURRENCES, VALID_POINTS } = require('../validation');
 
 const router = express.Router();
 
@@ -55,6 +56,21 @@ async function checkAndAwardBadges(userId) {
 router.get('/', authenticate, async (req, res) => {
   try {
     const { status, assigned_to, category, priority, sort } = req.query;
+
+    // Validate filter values against allowed enums
+    if (status && status !== 'all' && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status filter' });
+    }
+    if (category && !VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: 'Invalid category filter' });
+    }
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
+      return res.status(400).json({ error: 'Invalid priority filter' });
+    }
+    if (assigned_to && !parseId(assigned_to)) {
+      return res.status(400).json({ error: 'Invalid assigned_to filter' });
+    }
+
     let query = `
       SELECT t.*,
         cu.display_name AS creator_name, cu.avatar_emoji AS creator_emoji,
@@ -74,7 +90,7 @@ router.get('/', authenticate, async (req, res) => {
     }
     if (assigned_to) {
       query += ` AND t.assigned_to = $${paramIndex++}`;
-      params.push(parseInt(assigned_to));
+      params.push(parseId(assigned_to));
     }
     if (category) {
       query += ` AND t.category = $${paramIndex++}`;
@@ -104,21 +120,48 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const { title, description, category, priority, assigned_to, due_date, points_value, recurrence } = req.body;
-    if (!title) return res.status(400).json({ error: 'Title required' });
+
+    const cleanTitle = sanitizeString(title, 200);
+    if (!cleanTitle) return res.status(400).json({ error: 'Title required (max 200 characters)' });
+
+    const cleanDescription = sanitizeString(description, 5000) || '';
+    const cleanCategory = category || 'other';
+    const cleanPriority = priority || 'medium';
+    const cleanRecurrence = recurrence || 'none';
+    const cleanPoints = points_value || 10;
+
+    // Validate enums
+    if (!VALID_CATEGORIES.includes(cleanCategory)) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+    if (!VALID_PRIORITIES.includes(cleanPriority)) {
+      return res.status(400).json({ error: 'Invalid priority' });
+    }
+    if (!VALID_RECURRENCES.includes(cleanRecurrence)) {
+      return res.status(400).json({ error: 'Invalid recurrence' });
+    }
+    if (!VALID_POINTS.includes(cleanPoints)) {
+      return res.status(400).json({ error: 'Invalid points value. Must be 5, 10, 20, 50, or 100' });
+    }
+
+    const cleanAssignedTo = assigned_to ? parseId(assigned_to) : null;
+    if (assigned_to && !cleanAssignedTo) {
+      return res.status(400).json({ error: 'Invalid assigned_to user ID' });
+    }
 
     const result = await pool.query(
       `INSERT INTO tasks (title, description, category, priority, assigned_to, due_date, points_value, recurrence, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
-        title,
-        description || '',
-        category || 'other',
-        priority || 'medium',
-        assigned_to || null,
+        cleanTitle,
+        cleanDescription,
+        cleanCategory,
+        cleanPriority,
+        cleanAssignedTo,
         due_date || null,
-        points_value || 10,
-        recurrence || 'none',
+        cleanPoints,
+        cleanRecurrence,
         req.user.id,
       ]
     );
@@ -126,7 +169,7 @@ router.post('/', authenticate, async (req, res) => {
     // Log activity
     await pool.query(
       `INSERT INTO activity_log (user_id, task_id, action, details) VALUES ($1, $2, $3, $4)`,
-      [req.user.id, result.rows[0].id, 'created', `Created task: ${title}`]
+      [req.user.id, result.rows[0].id, 'created', `Created task: ${cleanTitle}`]
     );
 
     res.status(201).json(result.rows[0]);
@@ -139,8 +182,39 @@ router.post('/', authenticate, async (req, res) => {
 // PUT /api/tasks/:id
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const taskId = parseInt(req.params.id);
+    const taskId = parseId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task ID' });
+
     const { title, description, category, priority, assigned_to, due_date, points_value, status, recurrence } = req.body;
+
+    // Authorization: only task creator, assignee, or admin can update
+    const taskCheck = await pool.query('SELECT created_by, assigned_to FROM tasks WHERE id = $1', [taskId]);
+    if (taskCheck.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
+    const existingTask = taskCheck.rows[0];
+    if (existingTask.created_by !== req.user.id && existingTask.assigned_to !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'You can only edit tasks you created or are assigned to' });
+    }
+
+    // Validate enums if provided
+    if (category && !VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
+      return res.status(400).json({ error: 'Invalid priority' });
+    }
+    if (status && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    if (recurrence && !VALID_RECURRENCES.includes(recurrence)) {
+      return res.status(400).json({ error: 'Invalid recurrence' });
+    }
+    if (points_value && !VALID_POINTS.includes(points_value)) {
+      return res.status(400).json({ error: 'Invalid points value' });
+    }
+
+    const cleanTitle = title ? sanitizeString(title, 200) : null;
+    const cleanDescription = description !== undefined ? sanitizeString(description, 5000) : null;
+    const cleanAssignedTo = assigned_to ? parseId(assigned_to) : null;
 
     const result = await pool.query(
       `UPDATE tasks SET
@@ -156,7 +230,7 @@ router.put('/:id', authenticate, async (req, res) => {
         updated_at = NOW()
        WHERE id = $10
        RETURNING *`,
-      [title, description, category, priority, assigned_to || null, due_date || null, points_value, status, recurrence, taskId]
+      [cleanTitle, cleanDescription, category || null, priority || null, cleanAssignedTo, due_date || null, points_value || null, status || null, recurrence || null, taskId]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
@@ -176,22 +250,24 @@ router.put('/:id', authenticate, async (req, res) => {
 // POST /api/tasks/:id/complete
 router.post('/:id/complete', authenticate, async (req, res) => {
   try {
-    const taskId = parseInt(req.params.id);
+    const taskId = parseId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task ID' });
+
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Mark task done
+      // Mark task done — only allow completing non-done tasks
       const taskResult = await client.query(
         `UPDATE tasks SET status = 'done', completed_at = NOW(), completed_by = $1, updated_at = NOW()
-         WHERE id = $2 RETURNING *`,
+         WHERE id = $2 AND status != 'done' RETURNING *`,
         [req.user.id, taskId]
       );
 
       if (taskResult.rows.length === 0) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Task not found' });
+        return res.status(404).json({ error: 'Task not found or already completed' });
       }
 
       const task = taskResult.rows[0];
@@ -275,7 +351,9 @@ router.post('/:id/complete', authenticate, async (req, res) => {
 // POST /api/tasks/:id/reopen
 router.post('/:id/reopen', authenticate, async (req, res) => {
   try {
-    const taskId = parseInt(req.params.id);
+    const taskId = parseId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task ID' });
+
     const result = await pool.query(
       `UPDATE tasks SET status = 'todo', completed_at = NULL, completed_by = NULL, updated_at = NOW()
        WHERE id = $1 RETURNING *`,
@@ -292,7 +370,17 @@ router.post('/:id/reopen', authenticate, async (req, res) => {
 // DELETE /api/tasks/:id
 router.delete('/:id', authenticate, async (req, res) => {
   try {
-    await pool.query('DELETE FROM tasks WHERE id = $1', [parseInt(req.params.id)]);
+    const taskId = parseId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task ID' });
+
+    // Authorization: only task creator or admin can delete
+    const taskCheck = await pool.query('SELECT created_by FROM tasks WHERE id = $1', [taskId]);
+    if (taskCheck.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
+    if (taskCheck.rows[0].created_by !== req.user.id && !req.user.is_admin) {
+      return res.status(403).json({ error: 'You can only delete tasks you created' });
+    }
+
+    await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
     res.json({ message: 'Task deleted' });
   } catch (err) {
     console.error('Delete task error:', err);
@@ -303,11 +391,14 @@ router.delete('/:id', authenticate, async (req, res) => {
 // GET /api/tasks/:id/comments
 router.get('/:id/comments', authenticate, async (req, res) => {
   try {
+    const taskId = parseId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task ID' });
+
     const result = await pool.query(
       `SELECT c.*, u.display_name, u.avatar_emoji
        FROM comments c LEFT JOIN users u ON c.user_id = u.id
        WHERE c.task_id = $1 ORDER BY c.created_at ASC`,
-      [parseInt(req.params.id)]
+      [taskId]
     );
     res.json(result.rows);
   } catch (err) {
@@ -319,12 +410,16 @@ router.get('/:id/comments', authenticate, async (req, res) => {
 // POST /api/tasks/:id/comments
 router.post('/:id/comments', authenticate, async (req, res) => {
   try {
+    const taskId = parseId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task ID' });
+
     const { content } = req.body;
-    if (!content) return res.status(400).json({ error: 'Content required' });
+    const cleanContent = sanitizeString(content, 2000);
+    if (!cleanContent) return res.status(400).json({ error: 'Content required (max 2000 characters)' });
 
     const result = await pool.query(
       `INSERT INTO comments (task_id, user_id, content) VALUES ($1, $2, $3) RETURNING *`,
-      [parseInt(req.params.id), req.user.id, content]
+      [taskId, req.user.id, cleanContent]
     );
 
     // Fetch user info for the response
