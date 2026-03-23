@@ -17,27 +17,14 @@ const PORT = process.env.PORT || 3000;
 // Security: Disable X-Powered-By header
 app.disable('x-powered-by');
 
-// Security: Helmet for security headers (CSP, HSTS, X-Frame-Options, etc.)
-// Note: 'unsafe-inline' in scriptSrc is required because Vite's production build
-// emits an inline module-preload script in index.html. A nonce-based approach would
-// remove this need but requires custom Vite plugin + server middleware.
+// Security: Helmet adds protective HTTP headers (X-Frame-Options, X-Content-Type-Options,
+// Strict-Transport-Security, Referrer-Policy, etc.)
+// CSP is disabled because Vite's production build uses crossorigin attributes and module
+// scripts that conflict with strict CSP directives across different deployment environments.
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginResourcePolicy: false,
 }));
 
 // Security: CORS only needed for API routes (static files are same-origin).
