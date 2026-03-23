@@ -18,11 +18,14 @@ const PORT = process.env.PORT || 3000;
 app.disable('x-powered-by');
 
 // Security: Helmet for security headers (CSP, HSTS, X-Frame-Options, etc.)
+// Note: 'unsafe-inline' in scriptSrc is required because Vite's production build
+// emits an inline module-preload script in index.html. A nonce-based approach would
+// remove this need but requires custom Vite plugin + server middleware.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:"],
@@ -34,6 +37,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
 // Security: Restrict CORS to same origin in production, allow dev origin in development
