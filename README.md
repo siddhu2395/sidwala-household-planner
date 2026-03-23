@@ -142,7 +142,7 @@ docker compose up db -d
 # Terminal 2: Backend (port 3000)
 cd server && npm install && npm run dev
 
-# Terminal 3: Frontend (port 5173)
+# Terminal 3: Frontend (port 8080)
 cd client && npm install && npm run dev
 ```
 
