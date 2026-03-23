@@ -40,12 +40,15 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-// Security: Restrict CORS to same origin in production, allow dev origin in development
+// Security: CORS only needed for API routes (static files are same-origin).
+// In dev, the Vite dev server on port 5173 needs cross-origin access to the API.
+// In production, the SPA is served from the same origin so CORS is not needed,
+// but we apply it narrowly to /api to avoid interfering with static asset loading.
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',')
   : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173']);
 
-app.use(cors({
+const corsMiddleware = cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (same-origin, server-to-server)
     if (!origin) return callback(null, true);
@@ -56,7 +59,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400,
-}));
+});
+// Apply CORS only to API routes — not static assets
+app.use('/api', corsMiddleware);
 
 // Security: Limit request body size
 app.use(express.json({ limit: '1mb' }));
