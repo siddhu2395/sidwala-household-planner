@@ -9,7 +9,7 @@ This file provides AI assistants with a comprehensive guide to the codebase stru
 **Sidwala Household Planner** is a full-stack household task management web application designed for shared households. It features gamification (points, badges, streaks), multi-user support, recurring tasks, comments, and an activity feed. The UI uses a distinctive pastel design language.
 
 **Tech Stack:**
-- **Frontend:** React 18 + Vite (port 5173 in dev, served from port 3000 in production)
+- **Frontend:** React 18 + Vite (port 8080 in dev, served from port 3000 in production)
 - **Backend:** Express.js (Node 20)
 - **Database:** PostgreSQL 16
 - **Deployment:** Docker + Docker Compose
@@ -76,7 +76,7 @@ cd server
 npm install
 npm run dev        # uses node --watch for hot reload
 
-# 3. Frontend (port 5173) — in another terminal
+# 3. Frontend (port 8080) — in another terminal
 cd client
 npm install
 npm run dev        # Vite dev server with HMR
