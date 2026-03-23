@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { pool, initDb } = require('./db');
@@ -17,38 +16,13 @@ const PORT = process.env.PORT || 3000;
 // Security: Disable X-Powered-By header
 app.disable('x-powered-by');
 
-// Security: Helmet adds protective HTTP headers (X-Frame-Options, X-Content-Type-Options,
-// Strict-Transport-Security, Referrer-Policy, etc.)
-// CSP is disabled because Vite's production build uses crossorigin attributes and module
-// scripts that conflict with strict CSP directives across different deployment environments.
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
-}));
-
-// Security: CORS only needed for API routes (static files are same-origin).
-// In dev, the Vite dev server on port 5173 needs cross-origin access to the API.
-// In production, the SPA is served from the same origin so CORS is not needed,
-// but we apply it narrowly to /api to avoid interfering with static asset loading.
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
-  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173']);
-
-const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (same-origin, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
-  },
+// CORS: allow the Vite dev server in development, open in production (same-origin app)
+app.use('/api', cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? true  // same-origin in production; Express will echo the request origin
+    : 'http://localhost:5173',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400,
-});
-// Apply CORS only to API routes — not static assets
-app.use('/api', corsMiddleware);
+}));
 
 // Security: Limit request body size
 app.use(express.json({ limit: '1mb' }));

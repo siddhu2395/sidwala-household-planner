@@ -11,6 +11,30 @@ import Notes from './pages/Notes';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
 
+export class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, fontFamily: 'sans-serif', color: '#333' }}>
+          <h2>Something went wrong</h2>
+          <pre style={{ color: 'red', whiteSpace: 'pre-wrap' }}>{this.state.error.message}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}>
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading...</p></div>;
